@@ -67,10 +67,27 @@ class Simulator:
         
         return plot
     
-    def _machines_plot(self, i, n_points=100, frame=None, just_data=False):
+    def _log_range(self,n_points):
+        LOG10_5 = np.log10(.5)
+
+        r = np.zeros(n_points)
+        r[-1] = 1
+
+        t = np.logspace(-5, LOG10_5, n_points//2-1, endpoint=False)
+        r[1           :(n_points//2)    : 1] = t
+        r[(n_points-2):((n_points-1)//2):-1] = 1 - t
+        
+        if n_points % 2 == 1:
+            r[n_points//2] = .5
+        
+        return r
+
+    def _machines_plot(self, i, n_points=101, frame=None, just_data=False):
         if frame is None:
             frame = self.n_iters-1
-        xs = np.linspace(0, 1, n_points)
+
+        qs = self._log_range(n_points)
+        xs = beta.ppf(qs, a=self.count[i][frame][0]+1, b=self.count[i][frame][1]+1)
         ys = beta.pdf(xs, a=self.count[i][frame][0]+1, b=self.count[i][frame][1]+1)
         ys /= np.max(ys)
 
@@ -87,7 +104,7 @@ class Simulator:
         
         return plot
     
-    def _all_machines_plot(self, n_points=100, frame=None, just_data=False):
+    def _all_machines_plot(self, n_points=101, frame=None, just_data=False):
         if frame is None:
             self.n_iters-1
         return [self._machines_plot(i,
