@@ -24,7 +24,7 @@ class Simulator:
         
         self.results= []
         #self.count = [[[0,0]] for i in range(self.n_machines)]
-        self.count = np.zeros((self.n_machines, self.n_iters, 2), dtype=int)
+        self.count = np.zeros((self.n_machines, self.n_iters+1, 2), dtype=int)
         
         for i in range(self.n_iters):
             m = rd.randint(0,self.n_machines-1)
@@ -33,11 +33,11 @@ class Simulator:
             
             for j in range(self.n_machines):
                 if j == m:
-                    self.count[m][i][0] = success   if i == 0 else (self.count[m][i-1][0] + success)
-                    self.count[m][i][1] = 1-success if i == 0 else (self.count[m][i-1][1] + 1-success)
+                    self.count[m][i+1][0] = self.count[m][i][0] + success
+                    self.count[m][i+1][1] = self.count[m][i][1] + 1-success
                 else:
-                    self.count[j][i][0] = 0 if i == 0 else self.count[j][i-1][0]
-                    self.count[j][i][1] = 0 if i == 0 else self.count[j][i-1][1]
+                    self.count[j][i+1][0] = self.count[j][i][0]
+                    self.count[j][i+1][1] = self.count[j][i][1]
                     
 
             self.results.append((m, success))
@@ -61,6 +61,7 @@ class Simulator:
         if not just_data:
             scatter_dict["mode"] = "markers"
             scatter_dict["hoverinfo"] = "none"
+            scatter_dict["name"] = "id"
         
         plot = py.graph_objs.Scatter(**scatter_dict)
         
@@ -71,7 +72,8 @@ class Simulator:
             frame = self.n_iters-1
         xs = np.linspace(0, 1, n_points)
         ys = beta.pdf(xs, a=self.count[i][frame][0]+1, b=self.count[i][frame][1]+1)
-        
+        ys /= np.max(ys)
+
         scatter_dict = {"x": xs,
                         "y": ys}
         
@@ -79,6 +81,7 @@ class Simulator:
             scatter_dict["fill"] = "tozeroy"
             scatter_dict["line"] = {"shape": "spline",
                                     "color": self.cmap[i]}
+            scatter_dict["name"] = "machine " + str(i+1)
         
         plot = py.graph_objs.Scatter(**scatter_dict)
         
@@ -100,6 +103,7 @@ class Simulator:
         layout_xs = {"xaxis" + str(i): {"domain": [step*(i-1)+margin, step*i-margin],
                                         "anchor": "y"+str(i)} for i in range(1,1+self.n_machines)}
         layout_ys = {"yaxis" + str(i): {"domain": [0, .5-margin],
+                                        "range": [0, 1.05],
                                         "anchor": "x"+str(i)} for i in range(1, 1+self.n_machines)}
         idx = self.n_machines+1        
         layout_main = {"xaxis" + str(idx): {"domain": [0, 1],
@@ -159,7 +163,7 @@ class Simulator:
         
         
         fig_dict["layout"] = self._layout()
-        # fill in most of layout
+        
         fig_dict["layout"]["updatemenus"] = [
             {
                 "buttons": [
@@ -208,14 +212,17 @@ class Simulator:
         }
         
         # make frames
-        for i in range(0,self.n_iters):
-            frame = {"name": str(i)}
-            
+        for i in range(0,self.n_iters+1):
+            frame = {"name": str(i),
+                     "layout" : {}}
+
             machines_plots = self._all_machines_plot(frame=i)
         
             for j,mp in enumerate(machines_plots):
                 mp["xaxis"] = "x"+str(j+1)
                 mp["yaxis"] = "y"+str(j+1)
+
+                #frame["layout"]["yaxis" + str(j+1)] = {"range": [0, np.max(mp["y"])*1.05]}
 
             main_plot = self._main_plot(frame=i, just_data=True)
             idx = self.n_machines+1
@@ -239,8 +246,3 @@ class Simulator:
         fig_dict["layout"]["sliders"] = [sliders_dict]
         
         py.offline.iplot(fig_dict)
-
-s = Simulator(n_machines=4, n_iters=100)
-
-s.simulate()
-s.animation()
