@@ -99,7 +99,7 @@ class Simulator:
             scatter_dict["fill"]  = "tozeroy"
             scatter_dict["line"]  = {"shape": "spline",
                                      "color": self.cmap[i]}
-            scatter_dict["name"]  = "machine " + str(i+1)
+            scatter_dict["name"]  = f"θ<sub>{i+1}</sub>"
             scatter_dict["xaxis"] = "x" + str(i+1)
             scatter_dict["yaxis"] = "y" + str(i+1)
         
