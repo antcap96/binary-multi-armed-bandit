@@ -10,6 +10,7 @@ class Simulator:
         self.n_machines = n_machines
         self.n_iters = n_iters
         self.probs = None
+        self.iter = 0
         
         self.machines = None
         self.colors = None
@@ -27,17 +28,17 @@ class Simulator:
         self.count = np.zeros((self.n_machines, self.n_iters+1, 2), dtype=int)
         
         for i in range(self.n_iters):
-            m = rd.randint(0,self.n_machines-1)
-            #m = self.select_machine()
+            self.iter = i
+            m = self.select_machine()
             success = rd.random() < self.probs[m]
             
             for j in range(self.n_machines):
                 if j == m:
-                    self.count[m][i+1][0] = self.count[m][i][0] + success
-                    self.count[m][i+1][1] = self.count[m][i][1] + 1-success
+                    self.count[m,i+1,0] = self.count[m,i,0] + success
+                    self.count[m,i+1,1] = self.count[m,i,1] + 1-success
                 else:
-                    self.count[j][i+1][0] = self.count[j][i][0]
-                    self.count[j][i+1][1] = self.count[j][i][1]
+                    self.count[j,i+1,0] = self.count[j,i,0]
+                    self.count[j,i+1,1] = self.count[j,i,1]
                     
 
             self.results.append((m, success))
@@ -87,18 +88,20 @@ class Simulator:
             frame = self.n_iters-1
 
         qs = self._log_range(n_points)
-        xs = beta.ppf(qs, a=self.count[i][frame][0]+1, b=self.count[i][frame][1]+1)
-        ys = beta.pdf(xs, a=self.count[i][frame][0]+1, b=self.count[i][frame][1]+1)
+        xs = beta.ppf(qs, a=self.count[i,frame,0]+1, b=self.count[i,frame,1]+1)
+        ys = beta.pdf(xs, a=self.count[i,frame,0]+1, b=self.count[i,frame,1]+1)
         ys /= np.max(ys)
 
         scatter_dict = {"x": xs,
                         "y": ys}
         
         if not just_data:
-            scatter_dict["fill"] = "tozeroy"
-            scatter_dict["line"] = {"shape": "spline",
-                                    "color": self.cmap[i]}
-            scatter_dict["name"] = "machine " + str(i+1)
+            scatter_dict["fill"]  = "tozeroy"
+            scatter_dict["line"]  = {"shape": "spline",
+                                     "color": self.cmap[i]}
+            scatter_dict["name"]  = "machine " + str(i+1)
+            scatter_dict["xaxis"] = "x" + str(i+1)
+            scatter_dict["yaxis"] = "y" + str(i+1)
         
         plot = py.graph_objs.Scatter(**scatter_dict)
         
@@ -118,19 +121,24 @@ class Simulator:
         step = 1/self.n_machines
         
         layout_xs = {"xaxis" + str(i): {"domain": [step*(i-1)+margin, step*i-margin],
-                                        "anchor": "y"+str(i)} for i in range(1,1+self.n_machines)}
+                                        "anchor": "y"+str(i)} 
+                     for i in range(1,1+self.n_machines)}
         layout_ys = {"yaxis" + str(i): {"domain": [0, .5-margin],
                                         "range": [0, 1.05],
-                                        "anchor": "x"+str(i)} for i in range(1, 1+self.n_machines)}
+                                        "anchor": "x"+str(i)} 
+                     for i in range(1, 1+self.n_machines)}
         idx = self.n_machines+1        
         layout_main = {"xaxis" + str(idx): {"domain": [0, 1],
                                             "range": [-3, 100],
-                                            "anchor": "y"+str(idx)},
+                                            "anchor": "y"+str(idx),},
                        "yaxis" + str(idx): {"domain": [0.5+margin, 1],
                                             "range": [.8, self.n_machines+0.2],
-                                            "anchor": "x"+str(idx)}}
+                                            "anchor": "x"+str(idx),
+                                            "tickmode": "array",
+                                            "tickvals": np.arange(1,self.n_machines+1),
+                                            "ticktext": [f"{i+1}<br>p={round(self.probs[i],2)}" for i in range(self.n_machines)]}}
         layout = {**layout_xs, **layout_ys, **layout_main}
-        
+
         return layout
     
     def _full_plot(self):
@@ -139,10 +147,6 @@ class Simulator:
         
         #get data of all machines and set the axis
         machine_plots = self._all_machines_plot()
-        
-        for i,mp in enumerate(machine_plots):
-            mp["xaxis"] = "x"+str(i+1)
-            mp["yaxis"] = "y"+str(i+1)
         
         #get data of main plot and set the axis
         idx = self.n_machines+1
@@ -165,13 +169,9 @@ class Simulator:
             "frames": []
         }
         
-        machines_plots = self._all_machines_plot(frame=1)
-        
-        for i,mp in enumerate(machines_plots):
-            mp["xaxis"] = "x"+str(i+1)
-            mp["yaxis"] = "y"+str(i+1)
+        machines_plots = self._all_machines_plot(frame=0)
 
-        main_plot = self._main_plot(frame=1)
+        main_plot = self._main_plot(frame=0)
         idx = self.n_machines+1
         main_plot["xaxis"] = "x"+str(idx)
         main_plot["yaxis"] = "y"+str(idx)
@@ -230,16 +230,9 @@ class Simulator:
         
         # make frames
         for i in range(0,self.n_iters+1):
-            frame = {"name": str(i),
-                     "layout" : {}}
+            frame = {"name": str(i)}
 
-            machines_plots = self._all_machines_plot(frame=i)
-        
-            for j,mp in enumerate(machines_plots):
-                mp["xaxis"] = "x"+str(j+1)
-                mp["yaxis"] = "y"+str(j+1)
-
-                #frame["layout"]["yaxis" + str(j+1)] = {"range": [0, np.max(mp["y"])*1.05]}
+            machines_plots = self._all_machines_plot(frame=i, just_data=True)
 
             main_plot = self._main_plot(frame=i, just_data=True)
             idx = self.n_machines+1
@@ -262,4 +255,14 @@ class Simulator:
 
         fig_dict["layout"]["sliders"] = [sliders_dict]
         
-        py.offline.iplot(fig_dict)
+        py.offline.iplot(fig_dict, auto_play=False)
+
+    def regret(self):
+        mu_optimal = np.max(self.probs)
+        
+        mus = np.array(self.probs)[[i[0] for i in self.results]]
+
+        return mu_optimal - mus
+
+    def cumulative_regret(self):
+        return np.cumsum(self.regret())
